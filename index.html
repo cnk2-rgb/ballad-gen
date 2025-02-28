@@ -1,0 +1,197 @@
+<body></body>
+<script src="https://unpkg.com/tone"></script>
+<script src="https://cdn.jsdelivr.net/gh/netizenorg/netnet-standard-library/build/nn.min.js?v=1"></script>
+<script>
+  
+//DS 
+//tonic: I, i 
+// tonic = [
+//   []
+// ]
+//pred: VI, vi, IV, iv, ii, 
+//dom: V, V7
+  
+// Global music data
+let step = 0
+let bar = 0
+let totalSteps = 12
+let totalBars = 4
+
+// CLOCKS
+let rightHandScale = ['F4', 'G4', 'G#4', 'A#4', 'C5', 'C#5', 'D#5', 'F5']
+let rightHandArp = [
+  [6, 3, 1, 6, 3, 1, 6, 3, 1, 6, 3, 1],
+  [5, 3, 0, 5, 3, 0, 5, 3, 0, 5, 3, 0],
+  [5, 3, 0, 5, 3, 0, 5, 3, 0, 5, 3, 0],
+  [4, 2, 0, 4, 2, 0, 4, 2, 0, 4, 2, 0]
+]
+let leftHandScale = ['F3', 'G3', 'G#3', 'A#3', 'C4', 'C#4', 'D#4', 'F4']
+let leftHandChrd = [
+  [1, 3, 6],
+  [0, 3, 5],
+  [0, 3, 5],
+  [0, 2, 4]
+]
+  
+/* global nn, Tone */
+
+const piano = new Tone.Sampler({
+    baseUrl: "https://tonejs.github.io/audio/salamander/",
+    urls: {
+      'A0': 'A0.mp3',
+      'C1': 'C1.mp3',
+      'D#1': 'Ds1.mp3',
+      'F#1': 'Fs1.mp3',
+      'A1': 'A1.mp3',
+      'C2': 'C2.mp3',
+      'D#2': 'Ds2.mp3',
+      'F#2': 'Fs2.mp3',
+      'A2': 'A2.mp3',
+      'C3': 'C3.mp3',
+      'D#3': 'Ds3.mp3',
+      'F#3': 'Fs3.mp3',
+      'A3': 'A3.mp3',
+      'C4': 'C4.mp3',
+      'D#4': 'Ds4.mp3',
+      'F#4': 'Fs4.mp3',
+      'A4': 'A4.mp3',
+      'C5': 'C5.mp3',
+      'D#5': 'Ds5.mp3',
+      'F#5': 'Fs5.mp3',
+      'A5': 'A5.mp3',
+      'C6': 'C6.mp3',
+      'D#6': 'Ds6.mp3',
+      'F#6': 'Fs6.mp3',
+      'A6': 'A6.mp3',
+      'C7': 'C7.mp3',
+      'D#7': 'Ds7.mp3',
+      'F#7': 'Fs7.mp3',
+      'A7': 'A7.mp3',
+      'C8': 'C8.mp3'
+    },
+    release: 1
+})
+
+const reverb = new Tone.Reverb( {
+  wet: 0.75,
+  decay: 5
+}).toDestination()
+
+piano.connect(reverb)
+
+// FUNCTIONS .......................................................
+  
+function randomColdplay () {
+  // choose new key/scale && tempo
+  Tone.Transport.bpm.value = nn.randomInt(70, 90)
+  const minor = [2, 1, 2, 2, 1, 2, 2] // aka "aeolian" mode
+  const keys = [ 'F', 'D', 'G', 'C', 'D#', 'A#']
+  const key = nn.random(keys)
+  rightHandScale = createScale(`${key}4`, minor)
+  leftHandScale = createScale(`${key}3`, minor)
+  // create new arpeggio && chord patterns
+  rightHandArp = []
+  leftHandChrd = []
+  for (let i = 0; i < 4; i++) {
+    let a = nn.randomInt(0, 7)
+    let b = nn.random() > 0.5 ? a + 2 : a + 3
+    let c = nn.random() > 0.5 ? b + 2 : b + 3
+    if (b > 7) b = b % 8
+    if (c > 7) c = c % 8
+    leftHandChrd.push([a, b, c])
+    rightHandArp.push([a, b, c, c, b, a, b, c])
+  }
+}
+
+function play (time) {
+  // get current step && bar index
+  const s = step % totalSteps
+  const b = bar % totalBars
+
+  // play left hand chord
+  if (s === 0) {
+    const chord = leftHandChrd[b]
+    const notes = chord.map(i => leftHandScale[i]) // convert arr of degrees to notes
+    piano.triggerAttackRelease(notes, '1n', time)
+  }
+
+  // play right hand arpeggio
+  const arp = rightHandArp[b]
+  const notes = arp.map(i => rightHandScale[i])
+  const note = notes[s]
+  piano.triggerAttackRelease(note, '8n', time)
+
+  // some visual feedbak
+  const hue = nn.randomInt(190, 230) // shade of blue
+  const saturation = nn.randomInt(25, 65)
+  nn.get('body').css({
+    backgroundColor: `hsl(${hue}deg, ${saturation}%, 50%)`
+  })
+
+  // update step/bar for next play call
+  step++
+  if (s === totalSteps - 1) bar++
+}
+  
+function toggle () {
+  if (Tone.Transport.state === 'started') {
+    Tone.Transport.stop()
+    toggleButton.content('cold-play')
+  } else {
+    Tone.Transport.start()
+    toggleButton.content('cold-stop')
+  }
+}
+
+// timing events ...................................................
+new Tone.Loop(play, '12n').start()
+
+// UI ELEMENTS .....................................................
+
+const buttonCSS = {
+  border: '1px solid black',
+  padding: '20px 30px',
+  background: 'transparent',
+  margin: '10px',
+  cursor: 'pointer'
+}
+
+function buttonHover (e) {
+  const button = e.target
+  const over = e.type === 'mouseover'
+  button.style.background = over ? 'black' : 'transparent'
+  button.style.color = over ? 'white' : 'black'
+}
+  
+const container = nn.create('section')
+  .addTo('body')
+  .css({
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'fixed',
+    width: '100vw',
+    height: '100vh'
+  })
+
+const toggleButton = nn.create('button') //so we can reference toggle
+  .content('cold-play')
+  .addTo(container)
+  .css(buttonCSS)
+  .on('mouseover', buttonHover)
+  .on('mouseout', buttonHover)
+  .on('click', toggle)
+  
+nn.create('button')
+  .content('randomize')
+  .addTo(container)
+  .css(buttonCSS)
+  .on('mouseover', buttonHover)
+  .on('mouseout', buttonHover)
+  // don't forget to add this to the end of ur randomize UI button
+  .on('click', randomColdplay)
+  // as well as this, so we randomize once soon as the page loads
+  .on('load', randomColdplay)
+  
+  
+</script>
